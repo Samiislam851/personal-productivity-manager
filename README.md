@@ -2,7 +2,7 @@
 
 [![MCPize](https://mcpize.com/badge/@mcpize/mcpize?type=hosted)](https://mcpize.com)
 
-MCP server created with [MCPize](https://mcpize.com).
+A Model Context Protocol (MCP) server that provides tools for personal productivity management, including calendar events, notes, and intelligent scheduling.
 
 ## Quick Start
 
@@ -39,8 +39,51 @@ npm start       # Run compiled server
 
 ## Tools
 
-- **hello** — Returns a greeting message
-- **echo** — Echoes back the input with a timestamp
+### Calendar Management
+
+- **get_today_events** — Retrieves today's scheduled events
+  - Example output:
+    ```
+    10:00 AM — Team meeting
+    02:00 PM — Client call
+    06:00 PM — Gym
+    ```
+
+- **create_calendar_event** — Creates a new calendar event
+  - Example: User says "Schedule meeting tomorrow at 3 PM with design team"
+  - Agent calls: `create_calendar_event`
+
+- **search_calendar_events** — Searches for calendar events by query
+  - Example: query "meeting"
+  - Output: List of matching events
+
+- **find_free_time_slot** — Finds available time slots in the calendar
+
+- **auto_schedule_meeting** — Automatically schedules meetings based on availability
+
+- **summarize_week_schedule** — Provides a summary of the week's schedule
+
+### Notes Management
+
+- **create_keep_note** — Creates a new note
+  - Example:
+    - Title: Startup idea
+    - Content: AI powered resume reviewer
+  - Output: Note saved
+
+- **get_keep_notes** — Retrieves notes, optionally filtered by query
+  - Example: query "startup"
+  - Output: Matching notes
+
+- **delete_keep_note** — Deletes a note by ID
+  - Input: note_id
+  - Output: Note deleted
+
+- **convert_note_to_task** — Converts a note into a scheduled task
+
+### Reminders
+
+- **reminder_agent** — Manages reminders and notifications
 
 ## Testing
 
