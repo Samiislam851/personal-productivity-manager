@@ -6,12 +6,11 @@ import { z } from "zod";
 import chalk from "chalk";
 import { google } from "googleapis";
 
-console.log('hey---',process.env.CLIENT_ID)
 
 const auth = new google.auth.OAuth2(
   process.env.CLIENT_ID,
   process.env.CLIENT_SECRET,
-  "http://localhost:3000/oauth/callback"
+  "http://localhost:8080/oauth/callback" //TODO: solve the callback issue
 );
 
 const calendar = google.calendar({
