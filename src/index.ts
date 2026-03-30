@@ -1,9 +1,30 @@
+import "dotenv/config";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express, { Request, Response } from "express";
 import { z } from "zod";
 import chalk from "chalk";
+import { google } from "googleapis";
 
+console.log('hey---',process.env.CLIENT_ID)
+
+const auth = new google.auth.OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  "http://localhost:3000/oauth/callback"
+);
+
+const calendar = google.calendar({
+  version: "v3",
+  auth
+});
+
+
+const events = await calendar.events.list({
+  calendarId: "primary"
+});
+
+console.log('events.data.items');
 
 // ============================================================================
 // MCP Server Setup
@@ -38,7 +59,23 @@ server.registerTool(
 );
 
 
+// server.registerTool(
+//   "get_todays_events",
+//   {
+//     title: "Get Todays Events",
+//     description: "get todays events from google calender",
+//     inputSchema: {
 
+//     }
+//   },
+//   async ({ name }) => {
+//     const output = { message: `Hello, ${name}! Welcome to MCP.` };
+//     return {
+//       content: [{ type: "text", text: JSON.stringify(output) }],
+//       structuredContent: output,
+//     };
+//   }
+// )
 // ============================================================================
 // Express App Setup
 // ============================================================================
