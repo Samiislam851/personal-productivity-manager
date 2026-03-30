@@ -3,7 +3,6 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import express, { Request, Response } from "express";
 import { z } from "zod";
 import chalk from "chalk";
-import { hello, echo } from "./tools.js";
 
 
 // ============================================================================
@@ -30,7 +29,7 @@ server.registerTool(
     },
   },
   async ({ name }) => {
-    const output = hello(name);
+    const output = { message: `Hello, ${name}! Welcome to MCP.` };
     return {
       content: [{ type: "text", text: JSON.stringify(output) }],
       structuredContent: output,
@@ -38,28 +37,7 @@ server.registerTool(
   }
 );
 
-// Register an "echo" tool for testing
-server.registerTool(
-  "echo",
-  {
-    title: "Echo Tool",
-    description: "Echoes back the input text",
-    inputSchema: {
-      text: z.string().describe("Text to echo"),
-    },
-    outputSchema: {
-      echo: z.string(),
-      timestamp: z.string(),
-    },
-  },
-  async ({ text }) => {
-    const output = echo(text);
-    return {
-      content: [{ type: "text", text: JSON.stringify(output) }],
-      structuredContent: output,
-    };
-  }
-);
+
 
 // ============================================================================
 // Express App Setup
