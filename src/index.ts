@@ -61,36 +61,6 @@ server.registerTool(
   }
 );
 
-// server.registerTool(
-//   "get_todays_events",
-//   {
-//     title: "Get Todays Events",
-//     description: "get todays events from google calender",
-//     inputSchema: {
-//       startOfDay: z.date(),
-//       endOfDay: z.date()
-//     }
-//   },
-//   async ({startOfDay, endOfDay}) => {
-    
-//     const events = await calendar.events.list({
-//       calendarId: "primary",
-//       timeMin: startOfDay.toISOString(),
-//       timeMax: endOfDay.toISOString(),
-//       singleEvents: true,
-//       orderBy: "startTime"
-//     });
-//         return {
-//       content: [{ events }],
-//       structuredContent: events,
-//     };
-//   }
-// )
-// ============================================================================
-// Express App Setup
-// ============================================================================
-
-
 server.registerTool(
   "get_today_events",
   {
