@@ -12,6 +12,7 @@ import {
   getGoogleAuthUrl,
   getOAuthRedirectUri,
 } from "./googleAuth.js";
+import { getTodaysEvents } from "./tools.js";
 
 const auth = createOAuth2Client();
 applyRefreshTokenFromEnv(auth);
@@ -72,28 +73,7 @@ server.registerTool(
     }
   },
   async ({ startOfDay, endOfDay }) => {
-
-    const events = await calendar.events.list({
-      calendarId: "primary",
-      timeMin: startOfDay,
-      timeMax: endOfDay,
-      singleEvents: true,
-      orderBy: "startTime",
-    });
-
-    const items = events.data.items ?? [];
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(items),
-        },
-      ],
-      structuredContent: {
-        events: items
-      }
-    };
+   return getTodaysEvents({startOfDay,endOfDay,calendar})
   }
 );
 const app = express();
@@ -133,19 +113,19 @@ app.get("/oauth/google/callback", async (req: Request, res: Response) => {
     const refresh = tokens.refresh_token;
     const html = refresh
       ? `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Google connected</title></head>
-<body>
-  <p>Calendar access is authorized. Add this line to your <code>.env</code> and restart the server:</p>
-  <pre id="r" style="word-break:break-all;background:#f4f4f4;padding:12px"></pre>
-  <script>document.getElementById("r").textContent="GOOGLE_REFRESH_TOKEN=" + ${JSON.stringify(refresh)};</script>
-  <p>If you already had a refresh token, replace the old value.</p>
-</body></html>`
-      : `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Google connected</title></head>
-<body>
-  <p>Authorization succeeded, but Google did not return a new refresh token.</p>
-  <p>Keep your existing <code>GOOGLE_REFRESH_TOKEN</code> in <code>.env</code>, or revoke app access in Google Account settings and try the link again.</p>
-</body></html>`;
+            <html><head><meta charset="utf-8"><title>Google connected</title></head>
+            <body>
+              <p>Calendar access is authorized. Add this line to your <code>.env</code> and restart the server:</p>
+              <pre id="r" style="word-break:break-all;background:#f4f4f4;padding:12px"></pre>
+              <script>document.getElementById("r").textContent="GOOGLE_REFRESH_TOKEN=" + ${JSON.stringify(refresh)};</script>
+              <p>If you already had a refresh token, replace the old value.</p>
+            </body></html>`
+                  : `<!DOCTYPE html>
+            <html><head><meta charset="utf-8"><title>Google connected</title></head>
+            <body>
+              <p>Authorization succeeded, but Google did not return a new refresh token.</p>
+              <p>Keep your existing <code>GOOGLE_REFRESH_TOKEN</code> in <code>.env</code>, or revoke app access in Google Account settings and try the link again.</p>
+            </body></html>`;
     res.status(200).type("html").send(html);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -184,8 +164,6 @@ app.post("/mcp", async (req: Request, res: Response) => {
     if (chunk) {
       responseBody += typeof chunk === "string" ? chunk : Buffer.from(chunk as ArrayBuffer).toString();
     }
-
-
 
     return originalEnd(chunk as string, encodingOrCallback as BufferEncoding, callback);
   };
