@@ -62,7 +62,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_today_events",
+  "get_todays_events",
   {
     title: "Get Todays Events",
     description: "get todays events from google calender",
