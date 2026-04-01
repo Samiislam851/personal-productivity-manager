@@ -97,16 +97,16 @@ server.registerTool(
     title: "Get Todays Events",
     description: "get todays events from google calender",
     inputSchema: {
-      startOfDay: z.date(),
-      endOfDay: z.date()
+      startOfDay: z.string().describe("ISO start of day"),
+      endOfDay: z.string().describe("ISO end of day")
     }
   },
-  async ({ startOfDay, endOfDay }, _extra) => {
+  async ({ startOfDay, endOfDay }) => {
 
     const events = await calendar.events.list({
       calendarId: "primary",
-      timeMin: startOfDay.toISOString(),
-      timeMax: endOfDay.toISOString(),
+      timeMin: startOfDay,
+      timeMax: endOfDay,
       singleEvents: true,
       orderBy: "startTime",
     });
