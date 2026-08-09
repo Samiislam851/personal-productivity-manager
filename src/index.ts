@@ -53,7 +53,7 @@ server.registerTool(
       message: z.string(),
     },
   },
-  async ({ name }) => {
+  async ({ name }:{name:string}) => {
     const output = { message: `Hello, ${name}! Welcome to MCP.` };
     return {
       content: [{ type: "text", text: JSON.stringify(output) }],
@@ -72,7 +72,7 @@ server.registerTool(
       endOfDay: z.string().describe("ISO end of day")
     }
   },
-  async ({ startOfDay, endOfDay }) => {
+  async ({ startOfDay, endOfDay }:{startOfDay:string, endOfDay:string }) => {
    return getTodaysEvents({startOfDay,endOfDay,calendar})
   }
 );
