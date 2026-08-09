@@ -71,3 +71,58 @@ export const createCalendarEvent = async ({
     },
   };
 };
+
+export const findFreeTimeSlot = async ({
+  startOfDay,
+  endOfDay,
+  durationMinutes,
+  calendar,
+}: {
+  startOfDay: string;
+  endOfDay: string;
+  durationMinutes: number;
+  calendar: calendar_v3.Calendar;
+}) => {
+  const freebusy = await calendar.freebusy.query({
+    requestBody: {
+      timeMin: startOfDay,
+      timeMax: endOfDay,
+      items: [{ id: "primary" }],
+    },
+  });
+
+  const busy = (freebusy.data.calendars?.primary?.busy ?? [])
+    .filter((b): b is { start: string; end: string } => !!b.start && !!b.end)
+    .map((b) => ({ start: new Date(b.start).getTime(), end: new Date(b.end).getTime() }))
+    .sort((a, b) => a.start - b.start);
+
+  const rangeStart = new Date(startOfDay).getTime();
+  const rangeEnd = new Date(endOfDay).getTime();
+  const durationMs = durationMinutes * 60 * 1000;
+
+  const freeSlots: { start: string; end: string }[] = [];
+  let cursor = rangeStart;
+
+  for (const period of busy) {
+    if (period.start - cursor >= durationMs) {
+      freeSlots.push({ start: new Date(cursor).toISOString(), end: new Date(period.start).toISOString() });
+    }
+    cursor = Math.max(cursor, period.end);
+  }
+
+  if (rangeEnd - cursor >= durationMs) {
+    freeSlots.push({ start: new Date(cursor).toISOString(), end: new Date(rangeEnd).toISOString() });
+  }
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(freeSlots),
+      },
+    ],
+    structuredContent: {
+      freeSlots,
+    },
+  };
+};

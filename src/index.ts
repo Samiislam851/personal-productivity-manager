@@ -12,7 +12,7 @@ import {
   getGoogleAuthUrl,
   getOAuthRedirectUri,
 } from "./googleAuth.js";
-import { getTodaysEvents, createCalendarEvent } from "./tools.js";
+import { getTodaysEvents, createCalendarEvent, findFreeTimeSlot } from "./tools.js";
 
 const auth = createOAuth2Client();
 applyRefreshTokenFromEnv(auth);
@@ -101,6 +101,22 @@ server.registerTool(
       attendees,
       calendar,
     });
+  }
+);
+
+server.registerTool(
+  "find_free_time_slot",
+  {
+    title: "Find Free Time Slot",
+    description: "Finds free time slots of a given duration within a time range on the user's primary calendar",
+    inputSchema: {
+      startOfDay: z.string().describe("ISO start of range"),
+      endOfDay: z.string().describe("ISO end of range"),
+      durationMinutes: z.number().describe("Minimum free slot duration in minutes"),
+    },
+  },
+  async ({ startOfDay, endOfDay, durationMinutes }) => {
+    return findFreeTimeSlot({ startOfDay, endOfDay, durationMinutes, calendar });
   }
 );
 const app = express();

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getTodaysEvents, createCalendarEvent } from "../src/tools.js";
+import { getTodaysEvents, createCalendarEvent, findFreeTimeSlot } from "../src/tools.js";
 
 function makeCalendar(items: unknown[]) {
   return {
@@ -122,5 +122,89 @@ describe("createCalendarEvent", () => {
         attendees: undefined,
       },
     });
+  });
+});
+
+function makeFreebusyCalendar(busy: { start: string; end: string }[]) {
+  return {
+    freebusy: {
+      query: vi.fn().mockResolvedValue({ data: { calendars: { primary: { busy } } } }),
+    },
+  } as any;
+}
+
+describe("findFreeTimeSlot", () => {
+  it("finds gaps around a single busy period", async () => {
+    const calendar = makeFreebusyCalendar([
+      { start: "2026-08-10T10:00:00.000Z", end: "2026-08-10T11:00:00.000Z" },
+    ]);
+
+    const result = await findFreeTimeSlot({
+      startOfDay: "2026-08-10T09:00:00.000Z",
+      endOfDay: "2026-08-10T12:00:00.000Z",
+      durationMinutes: 30,
+      calendar,
+    });
+
+    expect(calendar.freebusy.query).toHaveBeenCalledWith({
+      requestBody: {
+        timeMin: "2026-08-10T09:00:00.000Z",
+        timeMax: "2026-08-10T12:00:00.000Z",
+        items: [{ id: "primary" }],
+      },
+    });
+    expect(result.structuredContent.freeSlots).toEqual([
+      { start: "2026-08-10T09:00:00.000Z", end: "2026-08-10T10:00:00.000Z" },
+      { start: "2026-08-10T11:00:00.000Z", end: "2026-08-10T12:00:00.000Z" },
+    ]);
+  });
+
+  it("returns the whole range when there are no busy periods", async () => {
+    const calendar = makeFreebusyCalendar([]);
+
+    const result = await findFreeTimeSlot({
+      startOfDay: "2026-08-10T09:00:00.000Z",
+      endOfDay: "2026-08-10T12:00:00.000Z",
+      durationMinutes: 60,
+      calendar,
+    });
+
+    expect(result.structuredContent.freeSlots).toEqual([
+      { start: "2026-08-10T09:00:00.000Z", end: "2026-08-10T12:00:00.000Z" },
+    ]);
+  });
+
+  it("excludes gaps shorter than the requested duration", async () => {
+    const calendar = makeFreebusyCalendar([
+      { start: "2026-08-10T09:15:00.000Z", end: "2026-08-10T11:00:00.000Z" },
+    ]);
+
+    const result = await findFreeTimeSlot({
+      startOfDay: "2026-08-10T09:00:00.000Z",
+      endOfDay: "2026-08-10T11:20:00.000Z",
+      durationMinutes: 30,
+      calendar,
+    });
+
+    expect(result.structuredContent.freeSlots).toEqual([]);
+  });
+
+  it("merges overlapping busy periods when computing gaps", async () => {
+    const calendar = makeFreebusyCalendar([
+      { start: "2026-08-10T10:00:00.000Z", end: "2026-08-10T11:00:00.000Z" },
+      { start: "2026-08-10T10:30:00.000Z", end: "2026-08-10T12:00:00.000Z" },
+    ]);
+
+    const result = await findFreeTimeSlot({
+      startOfDay: "2026-08-10T09:00:00.000Z",
+      endOfDay: "2026-08-10T13:00:00.000Z",
+      durationMinutes: 30,
+      calendar,
+    });
+
+    expect(result.structuredContent.freeSlots).toEqual([
+      { start: "2026-08-10T09:00:00.000Z", end: "2026-08-10T10:00:00.000Z" },
+      { start: "2026-08-10T12:00:00.000Z", end: "2026-08-10T13:00:00.000Z" },
+    ]);
   });
 });
