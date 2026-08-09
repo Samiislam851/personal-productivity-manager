@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getTodaysEvents } from "../src/tools.js";
+import { getTodaysEvents, createCalendarEvent } from "../src/tools.js";
 
 function makeCalendar(items: unknown[]) {
   return {
@@ -61,5 +61,66 @@ describe("getTodaysEvents", () => {
     });
 
     expect(result.structuredContent.events).toEqual([]);
+  });
+});
+
+function makeInsertCalendar(eventData: unknown) {
+  return {
+    events: {
+      insert: vi.fn().mockResolvedValue({ data: eventData }),
+    },
+  } as any;
+}
+
+describe("createCalendarEvent", () => {
+  it("creates an event with the given details", async () => {
+    const createdEvent = { id: "abc123", summary: "Team meeting" };
+    const calendar = makeInsertCalendar(createdEvent);
+
+    const result = await createCalendarEvent({
+      summary: "Team meeting",
+      description: "Weekly sync",
+      startDateTime: "2026-08-10T10:00:00.000Z",
+      endDateTime: "2026-08-10T11:00:00.000Z",
+      timeZone: "Asia/Dhaka",
+      attendees: ["a@example.com", "b@example.com"],
+      calendar,
+    });
+
+    expect(calendar.events.insert).toHaveBeenCalledWith({
+      calendarId: "primary",
+      requestBody: {
+        summary: "Team meeting",
+        description: "Weekly sync",
+        start: { dateTime: "2026-08-10T10:00:00.000Z", timeZone: "Asia/Dhaka" },
+        end: { dateTime: "2026-08-10T11:00:00.000Z", timeZone: "Asia/Dhaka" },
+        attendees: [{ email: "a@example.com" }, { email: "b@example.com" }],
+      },
+    });
+    expect(result.structuredContent.event).toEqual(createdEvent);
+    expect(JSON.parse(result.content[0].text)).toEqual(createdEvent);
+  });
+
+  it("omits optional fields when not provided", async () => {
+    const createdEvent = { id: "xyz789", summary: "Solo focus block" };
+    const calendar = makeInsertCalendar(createdEvent);
+
+    await createCalendarEvent({
+      summary: "Solo focus block",
+      startDateTime: "2026-08-10T09:00:00.000Z",
+      endDateTime: "2026-08-10T10:00:00.000Z",
+      calendar,
+    });
+
+    expect(calendar.events.insert).toHaveBeenCalledWith({
+      calendarId: "primary",
+      requestBody: {
+        summary: "Solo focus block",
+        description: undefined,
+        start: { dateTime: "2026-08-10T09:00:00.000Z", timeZone: undefined },
+        end: { dateTime: "2026-08-10T10:00:00.000Z", timeZone: undefined },
+        attendees: undefined,
+      },
+    });
   });
 });

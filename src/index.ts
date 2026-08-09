@@ -12,7 +12,7 @@ import {
   getGoogleAuthUrl,
   getOAuthRedirectUri,
 } from "./googleAuth.js";
-import { getTodaysEvents } from "./tools.js";
+import { getTodaysEvents, createCalendarEvent } from "./tools.js";
 
 const auth = createOAuth2Client();
 applyRefreshTokenFromEnv(auth);
@@ -74,6 +74,33 @@ server.registerTool(
   },
   async ({ startOfDay, endOfDay }:{startOfDay:string, endOfDay:string }) => {
    return getTodaysEvents({startOfDay,endOfDay,calendar})
+  }
+);
+
+server.registerTool(
+  "create_calendar_event",
+  {
+    title: "Create Calendar Event",
+    description: "Creates a new event on the user's primary Google Calendar",
+    inputSchema: {
+      summary: z.string().describe("Event title"),
+      description: z.string().optional().describe("Event description"),
+      startDateTime: z.string().describe("ISO start date-time"),
+      endDateTime: z.string().describe("ISO end date-time"),
+      timeZone: z.string().optional().describe("IANA time zone, e.g. Asia/Dhaka"),
+      attendees: z.array(z.string()).optional().describe("Attendee email addresses"),
+    },
+  },
+  async ({ summary, description, startDateTime, endDateTime, timeZone, attendees }) => {
+    return createCalendarEvent({
+      summary,
+      description,
+      startDateTime,
+      endDateTime,
+      timeZone,
+      attendees,
+      calendar,
+    });
   }
 );
 const app = express();

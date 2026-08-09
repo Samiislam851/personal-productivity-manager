@@ -30,3 +30,44 @@ export const getTodaysEvents = async ({ startOfDay, endOfDay , calendar} : { sta
       }
     };
   }
+
+export const createCalendarEvent = async ({
+  summary,
+  description,
+  startDateTime,
+  endDateTime,
+  timeZone,
+  attendees,
+  calendar,
+}: {
+  summary: string;
+  description?: string;
+  startDateTime: string;
+  endDateTime: string;
+  timeZone?: string;
+  attendees?: string[];
+  calendar: calendar_v3.Calendar;
+}) => {
+  const event = await calendar.events.insert({
+    calendarId: "primary",
+    requestBody: {
+      summary,
+      description,
+      start: { dateTime: startDateTime, timeZone },
+      end: { dateTime: endDateTime, timeZone },
+      attendees: attendees?.map((email) => ({ email })),
+    },
+  });
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(event.data),
+      },
+    ],
+    structuredContent: {
+      event: event.data,
+    },
+  };
+};

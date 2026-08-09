@@ -1,8 +1,8 @@
 import { google } from "googleapis";
 import type { OAuth2Client } from "google-auth-library";
 
-/** Read-only Calendar access (list events). */
-export const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
+/** Read and write Calendar access (list + create events). */
+export const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
 
 /**
  * Must match a redirect URI in Google Cloud Console (APIs & Services → Credentials → OAuth client).
