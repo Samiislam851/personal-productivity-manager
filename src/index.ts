@@ -12,13 +12,32 @@ import {
   getGoogleAuthUrl,
   getOAuthRedirectUri,
 } from "./googleAuth.js";
-import { getTodaysEvents, createCalendarEvent, findFreeTimeSlot } from "./tools.js";
+import {
+  getTodaysEvents,
+  createCalendarEvent,
+  findFreeTimeSlot,
+  autoScheduleMeeting,
+  summarizeWeekSchedule,
+  createKeepNote,
+  getKeepNotes,
+  deleteKeepNote,
+  convertNoteToTask,
+  reminderAgent,
+} from "./tools.js";
 
 const auth = createOAuth2Client();
 applyRefreshTokenFromEnv(auth);
 
 const calendar = google.calendar({
   version: "v3",
+  auth,
+});
+const keep = google.keep({
+  version: "v1",
+  auth,
+});
+const tasks = google.tasks({
+  version: "v1",
   auth,
 });
 
@@ -117,6 +136,117 @@ server.registerTool(
   },
   async ({ startOfDay, endOfDay, durationMinutes }) => {
     return findFreeTimeSlot({ startOfDay, endOfDay, durationMinutes, calendar });
+  }
+);
+
+server.registerTool(
+  "auto_schedule_meeting",
+  {
+    title: "Auto Schedule Meeting",
+    description: "Finds the earliest free slot in a range and books a meeting there",
+    inputSchema: {
+      startOfDay: z.string().describe("ISO start of range"),
+      endOfDay: z.string().describe("ISO end of range"),
+      durationMinutes: z.number().describe("Meeting duration in minutes"),
+      summary: z.string().describe("Event title"),
+      description: z.string().optional().describe("Event description"),
+      timeZone: z.string().optional().describe("IANA time zone, e.g. Asia/Dhaka"),
+      attendees: z.array(z.string()).optional().describe("Attendee email addresses"),
+    },
+  },
+  async ({ startOfDay, endOfDay, durationMinutes, summary, description, timeZone, attendees }) => {
+    return autoScheduleMeeting({ startOfDay, endOfDay, durationMinutes, summary, description, timeZone, attendees, calendar });
+  }
+);
+
+server.registerTool(
+  "summarize_week_schedule",
+  {
+    title: "Summarize Week Schedule",
+    description: "Summarizes all events between two dates on the user's primary calendar",
+    inputSchema: {
+      startOfWeek: z.string().describe("ISO start of week"),
+      endOfWeek: z.string().describe("ISO end of week"),
+    },
+  },
+  async ({ startOfWeek, endOfWeek }) => {
+    return summarizeWeekSchedule({ startOfWeek, endOfWeek, calendar });
+  }
+);
+
+server.registerTool(
+  "create_keep_note",
+  {
+    title: "Create Keep Note",
+    description: "Creates a new Google Keep note",
+    inputSchema: {
+      title: z.string().describe("Note title"),
+      content: z.string().describe("Note content"),
+    },
+  },
+  async ({ title, content }) => {
+    return createKeepNote({ title, content, keep });
+  }
+);
+
+server.registerTool(
+  "get_keep_notes",
+  {
+    title: "Get Keep Notes",
+    description: "Retrieves Google Keep notes, optionally filtered by a text query",
+    inputSchema: {
+      query: z.string().optional().describe("Text to filter notes by title/content"),
+    },
+  },
+  async ({ query }) => {
+    return getKeepNotes({ query, keep });
+  }
+);
+
+server.registerTool(
+  "delete_keep_note",
+  {
+    title: "Delete Keep Note",
+    description: "Deletes a Google Keep note by its resource name/ID",
+    inputSchema: {
+      noteId: z.string().describe("Keep note resource name, e.g. notes/xxxxx"),
+    },
+  },
+  async ({ noteId }) => {
+    return deleteKeepNote({ noteId, keep });
+  }
+);
+
+server.registerTool(
+  "convert_note_to_task",
+  {
+    title: "Convert Note To Task",
+    description: "Converts a Google Keep note into a Google Task",
+    inputSchema: {
+      noteId: z.string().describe("Keep note resource name, e.g. notes/xxxxx"),
+      dueDate: z.string().optional().describe("ISO due date for the task"),
+    },
+  },
+  async ({ noteId, dueDate }) => {
+    return convertNoteToTask({ noteId, dueDate, keep, tasks });
+  }
+);
+
+server.registerTool(
+  "reminder_agent",
+  {
+    title: "Reminder Agent",
+    description: "Creates, lists, completes, or deletes reminders (backed by Google Tasks)",
+    inputSchema: {
+      action: z.enum(["create", "list", "complete", "delete"]).describe("Action to perform"),
+      title: z.string().optional().describe("Reminder title (for create)"),
+      notes: z.string().optional().describe("Reminder notes (for create)"),
+      dueDate: z.string().optional().describe("ISO due date (for create)"),
+      taskId: z.string().optional().describe("Task ID (for complete/delete)"),
+    },
+  },
+  async ({ action, title, notes, dueDate, taskId }) => {
+    return reminderAgent({ action, title, notes, dueDate, taskId, tasks });
   }
 );
 const app = express();

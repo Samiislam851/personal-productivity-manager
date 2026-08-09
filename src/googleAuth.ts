@@ -1,8 +1,17 @@
 import { google } from "googleapis";
 import type { OAuth2Client } from "google-auth-library";
 
-/** Full Calendar access (list, create, and free/busy queries). */
-export const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"];
+/**
+ * Calendar (list/create/free-busy) and Tasks (reminders) access.
+ * Note: the Keep API scope (auth/keep) is restricted to approved Google Workspace
+ * apps and isn't grantable via a standard OAuth client, so it's excluded here.
+ * The create/get/delete_keep_note and convert_note_to_task tools remain implemented
+ * but will fail with "insufficient authentication scopes" until that changes.
+ */
+export const CALENDAR_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/tasks",
+];
 
 /**
  * Must match a redirect URI in Google Cloud Console (APIs & Services → Credentials → OAuth client).

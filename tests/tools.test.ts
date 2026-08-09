@@ -1,5 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
-import { getTodaysEvents, createCalendarEvent, findFreeTimeSlot } from "../src/tools.js";
+import {
+  getTodaysEvents,
+  createCalendarEvent,
+  findFreeTimeSlot,
+  autoScheduleMeeting,
+  summarizeWeekSchedule,
+  createKeepNote,
+  getKeepNotes,
+  deleteKeepNote,
+  convertNoteToTask,
+  reminderAgent,
+} from "../src/tools.js";
 
 function makeCalendar(items: unknown[]) {
   return {
@@ -206,5 +217,208 @@ describe("findFreeTimeSlot", () => {
       { start: "2026-08-10T09:00:00.000Z", end: "2026-08-10T10:00:00.000Z" },
       { start: "2026-08-10T12:00:00.000Z", end: "2026-08-10T13:00:00.000Z" },
     ]);
+  });
+});
+
+describe("autoScheduleMeeting", () => {
+  it("books the earliest free slot", async () => {
+    const createdEvent = { id: "e1", summary: "Sync" };
+    const calendar = {
+      freebusy: {
+        query: vi.fn().mockResolvedValue({
+          data: { calendars: { primary: { busy: [{ start: "2026-08-10T09:00:00.000Z", end: "2026-08-10T09:30:00.000Z" }] } } },
+        }),
+      },
+      events: {
+        insert: vi.fn().mockResolvedValue({ data: createdEvent }),
+      },
+    } as any;
+
+    const result = await autoScheduleMeeting({
+      startOfDay: "2026-08-10T09:00:00.000Z",
+      endOfDay: "2026-08-10T12:00:00.000Z",
+      durationMinutes: 30,
+      summary: "Sync",
+      calendar,
+    });
+
+    expect(calendar.events.insert).toHaveBeenCalledWith({
+      calendarId: "primary",
+      requestBody: expect.objectContaining({
+        summary: "Sync",
+        start: { dateTime: "2026-08-10T09:30:00.000Z", timeZone: undefined },
+        end: { dateTime: "2026-08-10T10:00:00.000Z", timeZone: undefined },
+      }),
+    });
+    expect(result.structuredContent).toEqual({ scheduled: true, event: createdEvent });
+  });
+
+  it("reports no free slot instead of creating an event", async () => {
+    const calendar = {
+      freebusy: {
+        query: vi.fn().mockResolvedValue({
+          data: { calendars: { primary: { busy: [{ start: "2026-08-10T09:00:00.000Z", end: "2026-08-10T12:00:00.000Z" }] } } },
+        }),
+      },
+      events: { insert: vi.fn() },
+    } as any;
+
+    const result = await autoScheduleMeeting({
+      startOfDay: "2026-08-10T09:00:00.000Z",
+      endOfDay: "2026-08-10T12:00:00.000Z",
+      durationMinutes: 30,
+      summary: "Sync",
+      calendar,
+    });
+
+    expect(calendar.events.insert).not.toHaveBeenCalled();
+    expect(result.structuredContent).toEqual({ scheduled: false });
+  });
+});
+
+describe("summarizeWeekSchedule", () => {
+  it("summarizes events into readable lines", async () => {
+    const calendar = makeCalendar([
+      { summary: "Team meeting", start: { dateTime: "2026-08-10T10:00:00.000Z" } },
+      { summary: "Client call", start: { dateTime: "2026-08-10T14:00:00.000Z" } },
+    ]);
+
+    const result = await summarizeWeekSchedule({
+      startOfWeek: "2026-08-10T00:00:00.000Z",
+      endOfWeek: "2026-08-16T23:59:59.999Z",
+      calendar,
+    });
+
+    expect(result.structuredContent.eventCount).toBe(2);
+    expect(result.structuredContent.summary).toBe("10:00 AM — Team meeting\n02:00 PM — Client call");
+  });
+
+  it("reports no events scheduled", async () => {
+    const calendar = makeCalendar([]);
+
+    const result = await summarizeWeekSchedule({
+      startOfWeek: "2026-08-10T00:00:00.000Z",
+      endOfWeek: "2026-08-16T23:59:59.999Z",
+      calendar,
+    });
+
+    expect(result.structuredContent.eventCount).toBe(0);
+    expect(result.structuredContent.summary).toBe("No events scheduled this week.");
+  });
+});
+
+describe("createKeepNote", () => {
+  it("creates a note with title and content", async () => {
+    const noteData = { name: "notes/1", title: "Idea" };
+    const keep = { notes: { create: vi.fn().mockResolvedValue({ data: noteData }) } } as any;
+
+    const result = await createKeepNote({ title: "Idea", content: "AI resume reviewer", keep });
+
+    expect(keep.notes.create).toHaveBeenCalledWith({
+      requestBody: { title: "Idea", body: { text: { text: "AI resume reviewer" } } },
+    });
+    expect(result.structuredContent.note).toEqual(noteData);
+  });
+});
+
+describe("getKeepNotes", () => {
+  it("returns all notes when no query is given", async () => {
+    const notes = [{ title: "Idea" }, { title: "Groceries" }];
+    const keep = { notes: { list: vi.fn().mockResolvedValue({ data: { notes } }) } } as any;
+
+    const result = await getKeepNotes({ keep });
+
+    expect(result.structuredContent.notes).toEqual(notes);
+  });
+
+  it("filters notes by title/content query", async () => {
+    const notes = [
+      { title: "Startup idea", body: { text: { text: "resume reviewer" } } },
+      { title: "Groceries", body: { text: { text: "milk, eggs" } } },
+    ];
+    const keep = { notes: { list: vi.fn().mockResolvedValue({ data: { notes } }) } } as any;
+
+    const result = await getKeepNotes({ query: "startup", keep });
+
+    expect(result.structuredContent.notes).toEqual([notes[0]]);
+  });
+});
+
+describe("deleteKeepNote", () => {
+  it("deletes the note by id", async () => {
+    const keep = { notes: { delete: vi.fn().mockResolvedValue({}) } } as any;
+
+    const result = await deleteKeepNote({ noteId: "notes/1", keep });
+
+    expect(keep.notes.delete).toHaveBeenCalledWith({ name: "notes/1" });
+    expect(result.structuredContent).toEqual({ deleted: true, noteId: "notes/1" });
+  });
+});
+
+describe("convertNoteToTask", () => {
+  it("creates a task from a note's title and content", async () => {
+    const keep = {
+      notes: {
+        get: vi.fn().mockResolvedValue({ data: { title: "Idea", body: { text: { text: "Build it" } } } }),
+      },
+    } as any;
+    const taskData = { id: "t1", title: "Idea" };
+    const tasks = { tasks: { insert: vi.fn().mockResolvedValue({ data: taskData }) } } as any;
+
+    const result = await convertNoteToTask({ noteId: "notes/1", dueDate: "2026-08-15T00:00:00.000Z", keep, tasks });
+
+    expect(keep.notes.get).toHaveBeenCalledWith({ name: "notes/1" });
+    expect(tasks.tasks.insert).toHaveBeenCalledWith({
+      tasklist: "@default",
+      requestBody: { title: "Idea", notes: "Build it", due: "2026-08-15T00:00:00.000Z" },
+    });
+    expect(result.structuredContent.task).toEqual(taskData);
+  });
+});
+
+describe("reminderAgent", () => {
+  it("creates a reminder", async () => {
+    const taskData = { id: "t1", title: "Call mom" };
+    const tasks = { tasks: { insert: vi.fn().mockResolvedValue({ data: taskData }) } } as any;
+
+    const result = await reminderAgent({ action: "create", title: "Call mom", tasks });
+
+    expect(tasks.tasks.insert).toHaveBeenCalledWith({
+      tasklist: "@default",
+      requestBody: { title: "Call mom", notes: undefined, due: undefined },
+    });
+    expect(result.structuredContent.task).toEqual(taskData);
+  });
+
+  it("lists reminders", async () => {
+    const items = [{ id: "t1", title: "Call mom" }];
+    const tasks = { tasks: { list: vi.fn().mockResolvedValue({ data: { items } }) } } as any;
+
+    const result = await reminderAgent({ action: "list", tasks });
+
+    expect(result.structuredContent.tasks).toEqual(items);
+  });
+
+  it("completes a reminder", async () => {
+    const taskData = { id: "t1", status: "completed" };
+    const tasks = { tasks: { patch: vi.fn().mockResolvedValue({ data: taskData }) } } as any;
+
+    const result = await reminderAgent({ action: "complete", taskId: "t1", tasks });
+
+    expect(tasks.tasks.patch).toHaveBeenCalledWith({
+      tasklist: "@default",
+      task: "t1",
+      requestBody: { status: "completed" },
+    });
+    expect(result.structuredContent.task).toEqual(taskData);
+  });
+
+  it("deletes a reminder", async () => {
+    const tasks = { tasks: { delete: vi.fn().mockResolvedValue({}) } } as any;
+
+    const result = await reminderAgent({ action: "delete", taskId: "t1", tasks });
+
+    expect(tasks.tasks.delete).toHaveBeenCalledWith({ tasklist: "@default", task: "t1" });
+    expect(result.structuredContent).toEqual({ deleted: true, taskId: "t1" });
   });
 });
